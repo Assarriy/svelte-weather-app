@@ -2,14 +2,15 @@
   import { onMount } from "svelte";
   import { supabase } from "$lib/supabaseClient";
   import type { User } from "@supabase/supabase-js";
-  import toast, { Toaster } from "svelte-french-toast";
 
-  // --- ANIMATION LIBRARY ---
+  // --- IMPORT TOAST DARI FILE SENDIRI (BUKAN LIBRARY) ---
+  import Toast, { toast } from "$lib/Toast.svelte";
+
   import { fade, fly, slide, scale } from "svelte/transition";
-  import { flip } from "svelte/animate"; // PENTING: Untuk animasi list yang smooth saat delete
+  import { flip } from "svelte/animate";
   import { quintOut, elasticOut } from "svelte/easing";
 
-  // --- ICONS (SVG) ---
+  // --- ICONS ---
   const icons = {
     search:
       "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z",
@@ -28,7 +29,7 @@
     check: "M4.5 12.75l6 6 9-13.5",
   };
 
-  // --- TIPE DATA ---
+  // --- TYPES & STATE ---
   interface WeatherData {
     name: string;
     dt: number;
@@ -53,28 +54,21 @@
     created_at: string;
   }
 
-  // --- STATE ---
   let city = "";
   let weather: WeatherData | null = null;
   let forecast: ForecastItem[] = [];
   let loading = false;
   let user: User | null = null;
   let savedLocations: SavedLocation[] = [];
-
-  // Modal State
   let showDeleteModal = false;
   let deleteTargetId: number | null = null;
   let deleteTargetName: string = "";
 
-  // Reactive State
   $: isAlreadySaved = savedLocations.some(
     (loc) => loc.city_name.toLowerCase() === weather?.name.toLowerCase(),
   );
-
-  // Favicon Dinamis (SVG Base64)
   const favicon = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌤️</text></svg>`;
 
-  // --- HELPER ---
   function sanitizeInput(input: string): string {
     return input.replace(/[^a-zA-Z0-9\s,.-]/g, "").trim();
   }
@@ -85,7 +79,6 @@
     });
   const formatDay = (ts: number) =>
     new Date(ts * 1000).toLocaleDateString("id-ID", { weekday: "short" });
-
   function getBgColor(main: string | undefined): string {
     if (!main) return "from-[#0f172a] via-[#1e1b4b] to-[#312e81]";
     switch (main.toLowerCase()) {
@@ -104,7 +97,6 @@
     }
   }
 
-  // --- LIFECYCLE ---
   onMount(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       user = session?.user ?? null;
@@ -123,7 +115,6 @@
     return () => subscription.unsubscribe();
   });
 
-  // --- CORE FUNCTIONS ---
   async function fetchWeatherData(queryUrl: string, forecastUrl: string) {
     loading = true;
     try {
@@ -138,7 +129,7 @@
       forecast = dataF.list.filter((item: any) =>
         item.dt_txt.includes("12:00:00"),
       );
-      toast.success(`Cuaca ${dataW.name} dimuat!`, { icon: "🌤️" });
+      toast.success(`Cuaca ${dataW.name} dimuat!`);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -185,7 +176,6 @@
   async function saveLocation() {
     if (!user || !weather) return toast.error("Login diperlukan!");
     if (isAlreadySaved) return;
-
     const { error } = await supabase
       .from("saved_locations")
       .insert([{ city_name: weather.name, user_id: user.id }]);
@@ -209,7 +199,6 @@
     deleteTargetName = name;
     showDeleteModal = true;
   }
-
   async function confirmDelete() {
     if (deleteTargetId === null) return;
     const { error } = await supabase
@@ -218,7 +207,7 @@
       .eq("id", deleteTargetId);
     if (!error) {
       savedLocations = savedLocations.filter((l) => l.id !== deleteTargetId);
-      toast.success("Lokasi dihapus");
+      toast.success("Dihapus");
     } else {
       toast.error("Gagal menghapus");
     }
@@ -239,15 +228,11 @@
 </script>
 
 <svelte:head>
-  <title
-    >{weather
-      ? `Atmosphere - ${weather.name}`
-      : "Atmosphere - Discover Weather"}</title
-  >
+  <title>{weather ? `Atmosphere - ${weather.name}` : "Atmosphere"}</title>
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-<Toaster position="top-center" />
+<Toast />
 
 {#if showDeleteModal}
   <div
@@ -281,7 +266,7 @@
       <h3 class="text-xl font-bold text-white mb-2">Hapus Lokasi?</h3>
       <p class="text-slate-400 text-sm mb-6">
         Lokasi <span class="text-white font-semibold">"{deleteTargetName}"</span
-        > akan dihapus dari favorit.
+        > akan dihapus.
       </p>
       <div class="flex gap-3 justify-center">
         <button
@@ -306,7 +291,6 @@
     class="absolute inset-0 opacity-20 pointer-events-none"
     style="background-image: url('https://grainy-gradients.vercel.app/noise.svg');"
   ></div>
-
   <nav class="w-full max-w-5xl flex justify-between items-center mb-10 z-50">
     <div
       class="flex items-center gap-2 cursor-pointer group"
@@ -358,7 +342,6 @@
       >
         Discover the<br />Weather
       </h1>
-
       <div class="w-full relative group max-w-lg mb-12">
         <div
           class="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-1000"
@@ -391,13 +374,11 @@
           >
         </div>
       </div>
-
       <div class="flex flex-wrap justify-center gap-3">
         <button
           on:click={handleLocation}
           class="flex items-center gap-2 bg-white/5 hover:bg-white/15 border border-white/10 px-4 py-2 rounded-full text-sm transition font-medium backdrop-blur-sm"
-        >
-          <svg
+          ><svg
             class="w-4 h-4 text-cyan-400"
             fill="none"
             stroke="currentColor"
@@ -408,8 +389,8 @@
               stroke-width="2"
               d={icons.location}
             /></svg
-          > Lokasi Saya
-        </button>
+          > Lokasi Saya</button
+        >
         {#each ["Jakarta", "Bandung", "Bali", "Surabaya"] as kota}
           <button
             on:click={() => {
@@ -459,7 +440,6 @@
           <div
             class="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/10 transition duration-1000"
           ></div>
-
           <div class="flex justify-between items-start relative z-10">
             <div>
               <h2
@@ -478,7 +458,6 @@
               >
             </div>
           </div>
-
           <div
             class="flex flex-col md:flex-row items-center justify-between mt-10 md:mt-16 gap-8 relative z-10"
           >
@@ -499,14 +478,12 @@
                 </p>
               </div>
             </div>
-
             {#if user}
               {#if isAlreadySaved}
                 <button
                   disabled
                   class="flex items-center gap-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-8 py-4 rounded-2xl font-bold cursor-default transition"
-                >
-                  <svg
+                  ><svg
                     class="w-5 h-5"
                     fill="none"
                     stroke="currentColor"
@@ -517,9 +494,8 @@
                       stroke-linejoin="round"
                       d={icons.check}
                     /></svg
-                  >
-                  Tersimpan
-                </button>
+                  >Tersimpan</button
+                >
               {:else}
                 <button
                   on:click={saveLocation}
@@ -539,14 +515,12 @@
                       stroke-width="2"
                       d={icons.save}
                     /></svg
-                  >
-                  Simpan
+                  >Simpan
                 </button>
               {/if}
             {/if}
           </div>
         </div>
-
         <div class="grid grid-cols-2 gap-4">
           {#each [{ icon: icons.wind, label: "Angin", val: weather.wind.speed + " m/s" }, { icon: icons.humidity, label: "Kelembaban", val: weather.main.humidity + "%" }, { icon: icons.sunrise, label: "Terbit", val: formatTime(weather.sys.sunrise) }, { icon: icons.sunset, label: "Terbenam", val: formatTime(weather.sys.sunset) }] as item, i}
             <div
@@ -564,17 +538,14 @@
                   stroke-width="1.5"
                   d={item.icon}
                 /></svg
-              >
-              <span
+              ><span
                 class="text-xs uppercase opacity-50 mb-1 font-bold tracking-wider"
                 >{item.label}</span
-              >
-              <span class="text-lg font-bold">{item.val}</span>
+              ><span class="text-lg font-bold">{item.val}</span>
             </div>
           {/each}
         </div>
       </div>
-
       {#if forecast.length > 0}
         <div class="mt-10" in:fade={{ delay: 300, duration: 800 }}>
           <h4 class="text-lg font-bold mb-5 opacity-80 flex items-center gap-3">
@@ -591,13 +562,11 @@
                 <span
                   class="text-sm font-semibold opacity-60 mb-2 group-hover:text-cyan-300 transition"
                   >{formatDay(f.dt)}</span
-                >
-                <img
+                ><img
                   src={`https://openweathermap.org/img/wn/${f.weather[0].icon}.png`}
                   alt="icon"
                   class="w-12 h-12 mb-1 drop-shadow-lg group-hover:scale-110 transition"
-                />
-                <span class="text-xl font-bold tracking-tight"
+                /><span class="text-xl font-bold tracking-tight"
                   >{Math.round(f.main.temp)}°</span
                 >
               </div>
@@ -653,15 +622,13 @@
                 handleSearch();
               }}
               class="text-left"
-            >
-              <span
+              ><span
                 class="block font-bold text-lg group-hover:text-cyan-300 transition"
                 >{loc.city_name}</span
-              >
-              <span class="text-xs opacity-50"
+              ><span class="text-xs opacity-50"
                 >{new Date(loc.created_at).toLocaleDateString()}</span
-              >
-            </button>
+              ></button
+            >
             <button
               on:click={() => requestDelete(loc.id, loc.city_name)}
               class="p-2.5 rounded-xl text-white/20 hover:text-red-400 hover:bg-red-500/10 transition"
